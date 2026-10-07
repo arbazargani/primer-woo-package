@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Primer Woo Package
  * Description: Optimized REST API endpoints for WooCommerce attributes, terms, swatches and variable-product combinations.
- * Version: 1.3
+ * Version: 2.0
  * Author: Alireza Bazargani
  * Requires at least: 6.4
  * Requires PHP: 8.1
