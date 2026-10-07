@@ -49,6 +49,15 @@ final class Primer_Better_WooCommerce_Endpoints_Settings
         "default_value": null
     },
     {
+        "label": "لوگو تیره",
+        "group": "store",
+        "width": 4,
+        "type": "media-picker",
+        "values": [],
+        "key": "app_logo_dark",
+        "default_value": null
+    },
+    {
         "label": "فاو آیکون",
         "group": "store",
         "width": 4,

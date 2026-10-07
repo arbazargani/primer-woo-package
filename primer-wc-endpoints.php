@@ -13,6 +13,7 @@
 if (!defined('ABSPATH')) exit;
 
 require_once __DIR__ . '/primer-wc-settings.php';
+require_once __DIR__ . '/card-to-card-payment.php';
 
 final class Primer_Better_WooCommerce_Endpoints
 {
