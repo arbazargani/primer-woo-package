@@ -279,16 +279,16 @@ if (!class_exists('PWC_Card_To_Card_Module')) {
                 return new WP_Error('pwc_invalid_payment_method', 'This order does not use card-to-card payment.', ['status' => 400]);
             }
             $type = sanitize_key((string) $request->get_param('receipt_type'));
-            if (!in_array($type, ['text', 'image'], true)) {
-                return new WP_Error('pwc_invalid_receipt_type', 'receipt_type must be text or image.', ['status' => 400]);
+            if (!in_array($type, ['text', 'image', 'text_image'], true)) {
+                return new WP_Error('pwc_invalid_receipt_type', 'receipt_type must be text, image or text_image.', ['status' => 400]);
             }
             $text = sanitize_textarea_field((string) $request->get_param('receipt_text'));
             $attachment_id = 0;
             $attachment_url = '';
-            if ($type === 'text' && $text === '') {
-                return new WP_Error('pwc_missing_receipt', 'receipt_text is required.', ['status' => 400]);
+            if (in_array($type, ['text', 'text_image'], true) && $text === '') {
+                return new WP_Error('pwc_missing_receipt_text', 'receipt_text is required for this receipt type.', ['status' => 400]);
             }
-            if ($type === 'image') {
+            if (in_array($type, ['image', 'text_image'], true)) {
                 $file = $request->get_file_params()['receipt_image'] ?? null;
                 if (!$file || !empty($file['error'])) {
                     return new WP_Error('pwc_invalid_image', 'A valid receipt_image file is required.', ['status' => 400]);
@@ -302,7 +302,7 @@ if (!class_exists('PWC_Card_To_Card_Module')) {
             }
             self::delete_previous_attachment($order);
             self::set_meta($order, 'type', $type);
-            self::set_meta($order, 'text', $type === 'text' ? $text : '');
+            self::set_meta($order, 'text', in_array($type, ['text', 'text_image'], true) ? $text : '');
             self::set_meta($order, 'attachment_id', $attachment_id);
             self::set_meta($order, 'attachment_url', $attachment_url);
             self::set_meta($order, 'submitted_at', current_time('mysql', true));
@@ -344,9 +344,9 @@ if (!class_exists('PWC_Card_To_Card_Module')) {
             return [
                 'type' => $type,
                 'status' => (string) $order->get_meta(self::META_PREFIX . 'status', true) ?: 'pending',
-                'text' => $type === 'text' ? (string) $order->get_meta(self::META_PREFIX . 'text', true) : null,
-                'image_url' => $type === 'image' ? (string) $order->get_meta(self::META_PREFIX . 'attachment_url', true) : null,
-                'attachment_id' => $type === 'image' ? absint($order->get_meta(self::META_PREFIX . 'attachment_id', true)) : 0,
+                'text' => in_array($type, ['text', 'text_image'], true) ? (string) $order->get_meta(self::META_PREFIX . 'text', true) : null,
+                'image_url' => in_array($type, ['image', 'text_image'], true) ? (string) $order->get_meta(self::META_PREFIX . 'attachment_url', true) : null,
+                'attachment_id' => in_array($type, ['image', 'text_image'], true) ? absint($order->get_meta(self::META_PREFIX . 'attachment_id', true)) : 0,
                 'submitted_at' => (string) $order->get_meta(self::META_PREFIX . 'submitted_at', true),
                 'submitted_by' => $user_id,
             ];
@@ -390,7 +390,7 @@ if (!class_exists('PWC_Card_To_Card_Module')) {
                 </div>
                 <div style="padding:16px 18px">
                     <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:16px">
-                        <div><span style="display:block;color:#646970;font-size:12px;margin-bottom:3px"><?php echo esc_html__('نوع رسید', 'woocommerce'); ?></span><strong><?php echo esc_html($receipt['type'] === 'image' ? 'تصویر' : 'متن'); ?></strong></div>
+                        <div><span style="display:block;color:#646970;font-size:12px;margin-bottom:3px"><?php echo esc_html__('نوع رسید', 'woocommerce'); ?></span><strong><?php echo esc_html($receipt['type'] === 'text_image' ? 'متن و تصویر' : ($receipt['type'] === 'image' ? 'تصویر' : 'متن')); ?></strong></div>
                         <div><span style="display:block;color:#646970;font-size:12px;margin-bottom:3px"><?php echo esc_html__('زمان ارسال', 'woocommerce'); ?></span><strong><?php echo esc_html($receipt['submitted_at']); ?></strong></div>
                         <div><span style="display:block;color:#646970;font-size:12px;margin-bottom:3px"><?php echo esc_html__('ثبت‌کننده', 'woocommerce'); ?></span><strong><?php echo esc_html($user ? $user->user_login : (string) $receipt['submitted_by']); ?></strong></div>
                     </div>
