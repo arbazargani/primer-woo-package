@@ -197,6 +197,7 @@ Responsibilities:
 - Adds a WordPress Media Library picker to add/edit term screens.
 - Stores the selected attachment ID as term metadata.
 - Displays the selected thumbnail in the admin term list.
+- Removes the `استفاده‌های محصول` taxonomy column from the WordPress/WooCommerce product list table at a late filter priority, covering both product-list column filter variants while leaving the taxonomy available in the product editor.
 - Adds `product_usage` as a supported collection parameter to WooCommerce's official product REST API.
 - Applies a taxonomy query to official WooCommerce product collection requests using a Product Usage slug, term ID, or comma-separated list of either.
 

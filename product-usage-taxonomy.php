@@ -32,6 +32,21 @@ if (!class_exists('PWC_Product_Usage_Taxonomy')) {
             add_action('admin_enqueue_scripts', [self::class, 'enqueue_admin_assets']);
             add_filter('woocommerce_rest_product_collection_params', [self::class, 'add_rest_collection_param']);
             add_filter('woocommerce_rest_product_object_query', [self::class, 'filter_rest_product_query'], 10, 2);
+            add_filter('manage_product_posts_columns', [self::class, 'remove_product_list_column'], PHP_INT_MAX);
+            add_filter('manage_edit-product_columns', [self::class, 'remove_product_list_column'], PHP_INT_MAX);
+        }
+
+        public static function remove_product_list_column(array $columns): array
+        {
+            unset($columns[self::TAXONOMY], $columns['taxonomy-' . self::TAXONOMY]);
+
+            foreach ($columns as $key => $label) {
+                if (is_string($label) && trim(wp_strip_all_tags($label)) === 'استفاده‌های محصول') {
+                    unset($columns[$key]);
+                }
+            }
+
+            return $columns;
         }
 
         public static function add_rest_collection_param(array $query_params): array
