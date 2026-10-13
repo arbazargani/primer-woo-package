@@ -24,6 +24,12 @@ final class Primer_Better_WooCommerce_Endpoints_Settings
             'description' => 'Returns all global attributes, terms and swatch data.',
         ],
         [
+            'label' => 'Product usages',
+            'method' => 'GET',
+            'path' => 'usages',
+            'description' => 'Returns all Product Usage terms, descriptions, hierarchy and thumbnails.',
+        ],
+        [
             'label' => 'Product attributes',
             'method' => 'GET',
             'path' => 'products/{product_id}/attributes',

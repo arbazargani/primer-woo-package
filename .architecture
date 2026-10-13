@@ -1,0 +1,311 @@
+# Primer Woo Package Architecture
+
+## Purpose
+
+`Primer Woo Package` is a WordPress plugin for WooCommerce. It currently provides:
+
+1. A public REST API for global configuration, WooCommerce attributes, product attributes, variations, and product SEO/schema data.
+2. A configurable admin settings/API area.
+3. A card-to-card payment gateway with receipt upload, REST endpoints, Blocks integration, and admin review actions.
+4. An independent hierarchical `product_usage` taxonomy for WooCommerce products, including Persian admin labels and per-term thumbnail images.
+
+The plugin is located at:
+
+```text
+wp-content/plugins/primer-woocommerce-pack/
+```
+
+## Entry point and bootstrap
+
+The main plugin file is:
+
+```text
+primer-wc-endpoints.php
+```
+
+It contains the plugin header, loads feature files, defines the main REST API class, and boots the settings and REST classes at the end of the file.
+
+Current load order:
+
+```php
+require_once __DIR__ . '/primer-wc-settings.php';
+require_once __DIR__ . '/card-to-card-payment.php';
+require_once __DIR__ . '/product-usage-taxonomy.php';
+```
+
+The main file must remain a thin bootstrap/integration point. New independent features should normally be implemented in their own file and loaded with one `require_once` statement.
+
+## File map
+
+### `primer-wc-endpoints.php`
+
+Primary plugin entry point and main product REST API module.
+
+Responsibilities:
+
+- Declares plugin metadata.
+- Blocks direct access with `ABSPATH`.
+- Loads the other feature modules.
+- Defines `Primer_Better_WooCommerce_Endpoints`.
+- Registers the `primer-better-woocommerce/v1` REST routes on `rest_api_init`.
+- Formats products, attributes, terms, variations, SEO data, and structured data.
+- Boots the settings class and the main REST class.
+
+Main REST namespace:
+
+```text
+primer-better-woocommerce/v1
+```
+
+Routes currently registered by the main class:
+
+| Method | Route | Purpose | Permission |
+|---|---|---|---|
+| GET | `/global-config` | Returns public settings field definitions and saved public configuration. | Public (`__return_true`) |
+| GET | `/attributes` | Returns global WooCommerce attributes, their taxonomies, terms, and detected swatch data. | Public (`__return_true`) |
+| GET | `/usages` | Returns all Product Usage terms, including descriptions, hierarchy, usage counts, and thumbnail data. | Public (`__return_true`) |
+| GET | `/products/{id}/attributes` | Returns a product's attributes, assigned Product Usage terms, and variable-product combinations. | Public (`__return_true`) |
+| GET | `/products/{id}` | Returns compact product data, attributes, assigned Product Usage terms, combinations, and SEO/schema data. | Public (`__return_true`) |
+
+The product endpoints use WooCommerce product objects where available and return a `503` response if WooCommerce is unavailable. Product lookup returns `404` when the product does not exist.
+
+### `primer-wc-settings.php`
+
+Admin settings and API documentation module.
+
+Main class:
+
+```text
+Primer_Better_WooCommerce_Endpoints_Settings
+```
+
+Responsibilities:
+
+- Defines JSON-based settings fields and groups.
+- Adds the plugin's top-level admin menu.
+- Adds Settings and API endpoints submenu pages.
+- Registers and sanitizes the `primer_better_woocommerce_endpoints_global_config` option.
+- Supports text, textarea, select, checkbox, color-picker, and media-picker fields.
+- Converts configured media IDs to `{ id, url }` objects in public configuration responses.
+- Enqueues admin assets for settings-page media controls.
+- Maintains the `API_ROUTES` registry used to render the endpoint table on the `primer-wc-api-endpoints` admin page.
+- Documents the Product Usage endpoint in that table as `GET usages`, corresponding to `/wp-json/primer-better-woocommerce/v1/usages`.
+
+Admin menu identifiers:
+
+```text
+Top-level menu: primer-wc-api
+Settings page: primer-wc-settings
+API page: primer-wc-api-endpoints
+```
+
+The API endpoints page displays the routes from the settings class's `API_ROUTES` constant. The current table includes:
+
+```text
+GET global-config
+GET attributes
+GET usages
+GET products/{product_id}/attributes
+GET products/{product_id}
+```
+
+The displayed paths are relative to the `primer-better-woocommerce/v1` namespace, so the Product Usage row represents:
+
+```text
+GET /wp-json/primer-better-woocommerce/v1/usages
+```
+
+The settings class boots with `admin_menu`, `admin_init`, and `admin_enqueue_scripts` hooks. Its `API_ROUTES` registry is documentation-only; it does not register REST routes itself. Actual route registration remains in `Primer_Better_WooCommerce_Endpoints::register_routes()`.
+
+### `card-to-card-payment.php`
+
+Independent card-to-card payment feature.
+
+Main class:
+
+```text
+PWC_Card_To_Card_Module
+```
+
+Supporting classes/functions include:
+
+```text
+PWC_Card_To_Card_Gateway
+PWC_Card_To_Card_Blocks_Integration
+pwc_card_to_card_define_gateway_class()
+pwc_card_to_card_register_blocks_integration()
+```
+
+Responsibilities:
+
+- Registers the `pwc_card_to_card` WooCommerce payment gateway.
+- Adds a Persian payment settings submenu under the plugin's existing admin menu.
+- Registers card-to-card receipt REST endpoints.
+- Accepts receipt text, image, or text-plus-image submissions.
+- Validates and stores receipt uploads as WordPress attachments.
+- Stores receipt information in order metadata prefixed with `_pwc_card_receipt_`.
+- Displays receipt details on the WooCommerce admin order screen.
+- Provides approve, reject, and approve-and-move-to-processing actions.
+- Integrates with WooCommerce Blocks when the Blocks payment integration class exists.
+
+REST namespace:
+
+```text
+primer-card-to-card/v1
+```
+
+The module uses its own prefixed options, metadata, hooks, class names, and REST namespace to reduce conflicts.
+
+### `product-usage-taxonomy.php`
+
+Independent Product Usage taxonomy feature.
+
+Main class:
+
+```text
+PWC_Product_Usage_Taxonomy
+```
+
+Taxonomy constants:
+
+```text
+Taxonomy: product_usage
+Post type: product
+Admin submenu slug: pwc-product-usage
+Term meta key: thumbnail_id
+REST base: product-usage
+```
+
+Responsibilities:
+
+- Registers a hierarchical `product_usage` taxonomy on the WooCommerce `product` post type during `init`.
+- Provides Persian taxonomy labels and admin messages.
+- Enables native WordPress taxonomy UI for creating, editing, deleting, and assigning terms.
+- Adds a dedicated `Product Usage` submenu under WooCommerce.
+- Redirects that submenu to the native `edit-tags.php` taxonomy screen.
+- Enables `show_in_rest` with REST base `product-usage`.
+- Registers the `thumbnail_id` term meta field and exposes it in REST responses.
+- Adds a WordPress Media Library picker to add/edit term screens.
+- Stores the selected attachment ID as term metadata.
+- Displays the selected thumbnail in the admin term list.
+
+Product Usage capabilities:
+
+```text
+manage_product_terms
+edit_product_terms
+delete_product_terms
+assign_product_terms
+```
+
+The taxonomy is intentionally separate from product categories, tags, attributes, brands, and the other plugin features. It does not modify storefront templates, product pricing, stock, variations, or checkout. Its assigned terms are exposed by the dedicated `/usages` route and included in the two existing product API responses.
+
+## Admin architecture
+
+Current admin surfaces:
+
+```text
+Primer Woo API
+├── Settings
+└── API endpoints
+
+WooCommerce
+└── استفاده محصول
+
+WooCommerce payment settings / plugin submenu
+└── کارت به کارت
+```
+
+The Product Usage submenu is only a navigation entry. The actual term management remains WordPress's native taxonomy screen, preserving normal WordPress permissions and term workflows.
+
+## Data storage
+
+The plugin uses existing WordPress/WooCommerce storage APIs and does not create custom database tables.
+
+| Data | Storage |
+|---|---|
+| Global plugin settings | WordPress option `primer_better_woocommerce_endpoints_global_config` |
+| Card-to-card gateway settings | WooCommerce gateway settings plus feature options |
+| Card-to-card receipt data | WooCommerce order metadata prefixed `_pwc_card_receipt_` |
+| Product Usage terms | WordPress taxonomy `product_usage` and standard terms tables |
+| Product Usage thumbnails | Standard term meta key `thumbnail_id`, containing an attachment ID |
+
+## Lifecycle and hook conventions
+
+Important lifecycle points:
+
+- Feature files are loaded immediately by the main plugin file.
+- Taxonomies are registered on `init`.
+- REST routes are registered on `rest_api_init`.
+- Admin menus are registered on `admin_menu`.
+- Settings are registered on `admin_init`.
+- Admin scripts are loaded on `admin_enqueue_scripts` and should be restricted to relevant screens.
+- WooCommerce-dependent behavior is guarded with function/class checks where needed.
+
+When adding functionality:
+
+1. Use a unique class or function prefix.
+2. Register hooks from the feature's own `boot()` method.
+3. Keep storage names, REST namespaces, menu slugs, and metadata keys feature-specific.
+4. Use WordPress APIs for terms, metadata, media, settings, and REST responses.
+5. Sanitize input before storage and escape output at render time.
+6. Add capability checks for admin actions and protected data.
+7. Avoid changing the main class or unrelated modules unless integration is strictly required.
+
+## REST and API conventions
+
+The existing public product API is intentionally compact and returns explicit `success` fields. It uses `WP_REST_Response` for successful and common error responses.
+
+Term formatting in the main product API currently includes:
+
+```text
+id
+name
+slug
+description
+count
+swatch
+```
+
+Swatch detection is compatibility-oriented: it checks several common color and image term-meta keys used by swatch plugins. The Product Usage thumbnail uses its own `thumbnail_id` key and is exposed through the standard WordPress taxonomy REST API, the dedicated `/usages` route, and assigned Product Usage objects in both product API responses.
+
+Do not create a custom endpoint when a standard WordPress or WooCommerce REST route already supports the requirement.
+
+## Dependency assumptions
+
+The plugin header declares:
+
+```text
+Requires at least: WordPress 6.4
+Requires PHP: 8.1
+Requires Plugins: woocommerce, woo-variation-swatches
+```
+
+WooCommerce is required for the intended product and payment functionality. Some modules defensively check for WooCommerce functions/classes to avoid fatal errors when the dependency is unavailable.
+
+## Coding and compatibility notes
+
+- PHP syntax uses typed methods, return types, class constants, and PHP 8.1-compatible features.
+- WordPress translation functions use the plugin text domain `primer-better-woocommerce-endpoints` in the newer isolated features.
+- Some older/existing UI strings use the `woocommerce` text domain or plain strings; do not refactor these unrelated areas without an explicit request.
+- Existing files contain compact formatting in places. Match the surrounding file style when making targeted edits.
+- Do not rename existing classes, routes, options, metadata keys, or menu slugs.
+- Do not add frontend rendering or theme assumptions unless explicitly requested.
+- Avoid broad refactors. Preserve unrelated user changes.
+
+## Safe extension strategy
+
+For a new feature:
+
+1. Inspect the existing files and identify whether the feature is independent or requires an integration point.
+2. Prefer a new dedicated PHP file.
+3. Create one uniquely prefixed class with a `boot()` method.
+4. Register all hooks from that class.
+5. Load the file from the main plugin file with one `require_once` line if needed.
+6. Keep all feature logic in the dedicated file.
+7. Add only focused documentation/tests or the minimum required integration changes.
+8. Validate syntax, diagnostics, and the narrowest relevant runtime behavior.
+
+## Known validation limitation
+
+The editor diagnostics environment may report WordPress functions and classes as unresolved because WordPress stubs are not available to the language server. Runtime validation should therefore be performed in an actual WordPress/WooCommerce installation or test bootstrap when available.

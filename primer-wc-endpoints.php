@@ -14,6 +14,7 @@ if (!defined('ABSPATH')) exit;
 
 require_once __DIR__ . '/primer-wc-settings.php';
 require_once __DIR__ . '/card-to-card-payment.php';
+require_once __DIR__ . '/product-usage-taxonomy.php';
 
 final class Primer_Better_WooCommerce_Endpoints
 {
@@ -35,6 +36,12 @@ final class Primer_Better_WooCommerce_Endpoints
         register_rest_route(self::NAMESPACE, '/attributes', [
             'methods' => WP_REST_Server::READABLE,
             'callback' => [self::class, 'get_attributes'],
+            'permission_callback' => '__return_true',
+        ]);
+
+        register_rest_route(self::NAMESPACE, '/usages', [
+            'methods' => WP_REST_Server::READABLE,
+            'callback' => [self::class, 'get_product_usages'],
             'permission_callback' => '__return_true',
         ]);
 
@@ -99,6 +106,32 @@ final class Primer_Better_WooCommerce_Endpoints
         ]);
     }
 
+    public static function get_product_usages(): WP_REST_Response
+    {
+        if (!taxonomy_exists('product_usage')) {
+            return new WP_REST_Response(['success' => false, 'message' => 'Product Usage taxonomy is not available.'], 503);
+        }
+
+        $terms = get_terms([
+            'taxonomy' => 'product_usage',
+            'hide_empty' => false,
+            'orderby' => 'term_id',
+            'order' => 'ASC',
+        ]);
+
+        if (is_wp_error($terms)) {
+            return new WP_REST_Response(['success' => false, 'message' => $terms->get_error_message()], 500);
+        }
+
+        $usages = array_map([self::class, 'format_product_usage'], $terms);
+
+        return new WP_REST_Response([
+            'success' => true,
+            'count' => count($usages),
+            'usages' => $usages,
+        ]);
+    }
+
     public static function get_product_attributes(WP_REST_Request $request): WP_REST_Response
     {
         $product = self::get_product_or_error((int) $request['id']);
@@ -111,6 +144,7 @@ final class Primer_Better_WooCommerce_Endpoints
             'product_id' => $product->get_id(),
             'type' => $product->get_type(),
             'attributes' => self::format_product_attributes($product),
+            'product_usage' => self::format_product_usages($product),
             'combinations' => $combinations,
             'combinations_count' => count($combinations),
         ]);
@@ -131,6 +165,7 @@ final class Primer_Better_WooCommerce_Endpoints
                 'status' => $product->get_status(),
                 'sku' => $product->get_sku(),
                 'attributes' => self::format_product_attributes($product),
+                'product_usage' => self::format_product_usages($product),
                 'combinations' => self::format_variations($product),
                 'seo' => self::format_product_seo($product),
             ],
@@ -345,6 +380,34 @@ final class Primer_Better_WooCommerce_Endpoints
         }
 
         return $product;
+    }
+
+    private static function format_product_usages(WC_Product $product): array
+    {
+        if (!taxonomy_exists('product_usage')) return [];
+
+        $terms = get_the_terms($product->get_id(), 'product_usage');
+        if (!$terms || is_wp_error($terms)) return [];
+
+        return array_map([self::class, 'format_product_usage'], $terms);
+    }
+
+    private static function format_product_usage(WP_Term $term): array
+    {
+        $thumbnail_id = absint(get_term_meta($term->term_id, 'thumbnail_id', true));
+
+        return [
+            'id' => (int) $term->term_id,
+            'name' => $term->name,
+            'slug' => $term->slug,
+            'description' => $term->description,
+            'parent' => (int) $term->parent,
+            'count' => (int) $term->count,
+            'thumbnail' => [
+                'id' => $thumbnail_id,
+                'url' => $thumbnail_id ? wp_get_attachment_image_url($thumbnail_id, 'full') : null,
+            ],
+        ];
     }
 
     private static function format_product_attributes(WC_Product $product): array
