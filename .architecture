@@ -67,6 +67,15 @@ Routes currently registered by the main class:
 | GET | `/products/{id}/attributes` | Returns a product's attributes, assigned Product Usage terms, and variable-product combinations. | Public (`__return_true`) |
 | GET | `/products/{id}` | Returns compact product data, attributes, assigned Product Usage terms, combinations, and SEO/schema data. | Public (`__return_true`) |
 
+Official WooCommerce product REST API filtering:
+
+```text
+GET /wp-json/wc/v2/products?product_usage=running
+GET /wp-json/wc/v3/products?product_usage=running
+```
+
+The Product Usage module adds the `product_usage` collection parameter through WooCommerce REST filters. The official WooCommerce authentication, pagination, ordering, and response format remain unchanged. The parameter accepts a term slug, term ID, or comma-separated values; multiple values are matched with OR semantics.
+
 The product endpoints use WooCommerce product objects where available and return a `503` response if WooCommerce is unavailable. Product lookup returns `404` when the product does not exist.
 
 ### `primer-wc-settings.php`
@@ -188,6 +197,8 @@ Responsibilities:
 - Adds a WordPress Media Library picker to add/edit term screens.
 - Stores the selected attachment ID as term metadata.
 - Displays the selected thumbnail in the admin term list.
+- Adds `product_usage` as a supported collection parameter to WooCommerce's official product REST API.
+- Applies a taxonomy query to official WooCommerce product collection requests using a Product Usage slug, term ID, or comma-separated list of either.
 
 Product Usage capabilities:
 
@@ -217,6 +228,12 @@ WooCommerce payment settings / plugin submenu
 ```
 
 The Product Usage submenu is only a navigation entry. The actual term management remains WordPress's native taxonomy screen, preserving normal WordPress permissions and term workflows.
+
+The official WooCommerce product collection endpoint can be filtered by Product Usage with the `product_usage` query parameter. Example:
+
+```text
+/wp-json/wc/v3/products?product_usage=running
+```
 
 ## Data storage
 
@@ -267,7 +284,7 @@ count
 swatch
 ```
 
-Swatch detection is compatibility-oriented: it checks several common color and image term-meta keys used by swatch plugins. The Product Usage thumbnail uses its own `thumbnail_id` key and is exposed through the standard WordPress taxonomy REST API, the dedicated `/usages` route, and assigned Product Usage objects in both product API responses.
+Swatch detection is compatibility-oriented: it checks several common color and image term-meta keys used by swatch plugins. The Product Usage thumbnail uses its own `thumbnail_id` key and is exposed through the standard WordPress taxonomy REST API, the dedicated `/usages` route, and assigned Product Usage objects in both product API responses. Product filtering is integrated into WooCommerce's official product collection API through `woocommerce_rest_product_collection_params` and `woocommerce_rest_product_object_query`.
 
 Do not create a custom endpoint when a standard WordPress or WooCommerce REST route already supports the requirement.
 

@@ -30,6 +30,81 @@ if (!class_exists('PWC_Product_Usage_Taxonomy')) {
             add_filter('manage_edit-product_usage_columns', [self::class, 'add_thumbnail_column']);
             add_filter('manage_product_usage_custom_column', [self::class, 'render_thumbnail_column'], 10, 3);
             add_action('admin_enqueue_scripts', [self::class, 'enqueue_admin_assets']);
+            add_filter('woocommerce_rest_product_collection_params', [self::class, 'add_rest_collection_param']);
+            add_filter('woocommerce_rest_product_object_query', [self::class, 'filter_rest_product_query'], 10, 2);
+        }
+
+        public static function add_rest_collection_param(array $query_params): array
+        {
+            $query_params['product_usage'] = [
+                'description'       => __('فیلتر محصولات بر اساس استفاده محصول. می‌توانید slug یا شناسه term را وارد کنید و چند مقدار را با کاما جدا کنید.', 'primer-better-woocommerce-endpoints'),
+                'type'              => 'string',
+                'sanitize_callback' => 'sanitize_text_field',
+                'validate_callback' => static function ($value): bool {
+                    return is_scalar($value) && trim((string) $value) !== '';
+                },
+            ];
+
+            return $query_params;
+        }
+
+        public static function filter_rest_product_query(array $args, WP_REST_Request $request): array
+        {
+            $raw_usage = $request->get_param('product_usage');
+            if (!is_scalar($raw_usage) || trim((string) $raw_usage) === '') {
+                return $args;
+            }
+
+            $terms = array_values(array_filter(array_map(
+                static function ($term): string {
+                    return sanitize_title(trim((string) $term));
+                },
+                explode(',', (string) $raw_usage)
+            )));
+
+            if (!$terms) {
+                return $args;
+            }
+
+            $term_ids = [];
+            $term_slugs = [];
+            foreach ($terms as $term) {
+                if (ctype_digit($term)) {
+                    $term_ids[] = absint($term);
+                } else {
+                    $term_slugs[] = $term;
+                }
+            }
+
+            $usage_query = [
+                'relation' => 'OR',
+            ];
+
+            if ($term_ids) {
+                $usage_query[] = [
+                    'taxonomy' => self::TAXONOMY,
+                    'field'    => 'term_id',
+                    'terms'    => $term_ids,
+                ];
+            }
+
+            if ($term_slugs) {
+                $usage_query[] = [
+                    'taxonomy' => self::TAXONOMY,
+                    'field'    => 'slug',
+                    'terms'    => $term_slugs,
+                ];
+            }
+
+            if (count($usage_query) > 1) {
+                if (!isset($args['tax_query']) || !is_array($args['tax_query'])) {
+                    $args['tax_query'] = [];
+                }
+
+                $args['tax_query'][] = $usage_query;
+            }
+
+            return $args;
         }
 
         public static function register_taxonomy(): void
