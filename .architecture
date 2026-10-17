@@ -7,7 +7,7 @@
 1. A public REST API for global configuration, WooCommerce attributes, product attributes, variations, and product SEO/schema data.
 2. A configurable admin settings/API area.
 3. A card-to-card payment gateway with receipt upload, REST endpoints, Blocks integration, and admin review actions.
-4. An independent hierarchical `product_usage` taxonomy for WooCommerce products, including Persian admin labels and per-term thumbnail images.
+4. Independent hierarchical `product_usage` and `product_gender` taxonomies for WooCommerce products, with Persian admin labels and per-term thumbnail images.
 
 The plugin is located at:
 
@@ -72,9 +72,10 @@ Official WooCommerce product REST API filtering:
 ```text
 GET /wp-json/wc/v2/products?product_usage=running
 GET /wp-json/wc/v3/products?product_usage=running
+GET /wp-json/wc/v3/products?product_gender=men
 ```
 
-The Product Usage module adds the `product_usage` collection parameter through WooCommerce REST filters. The official WooCommerce authentication, pagination, ordering, and response format remain unchanged. The parameter accepts a term slug, term ID, or comma-separated values; multiple values are matched with OR semantics.
+The Product Usage module adds the `product_usage` collection parameter through WooCommerce REST filters. The official WooCommerce authentication, pagination, ordering, and response format remain unchanged. Each parameter accepts a term slug, term ID, or comma-separated values; multiple values within one taxonomy are matched with OR semantics. Supplying both parameters combines the taxonomy filters with AND semantics.
 
 The product endpoints use WooCommerce product objects where available and return a `503` response if WooCommerce is unavailable. Product lookup returns `404` when the product does not exist.
 
@@ -167,7 +168,7 @@ The module uses its own prefixed options, metadata, hooks, class names, and REST
 
 ### `product-usage-taxonomy.php`
 
-Independent Product Usage taxonomy feature.
+Independent Product Usage and Product Gender taxonomy feature.
 
 Main class:
 
@@ -178,28 +179,32 @@ PWC_Product_Usage_Taxonomy
 Taxonomy constants:
 
 ```text
-Taxonomy: product_usage
+Product Usage taxonomy: product_usage
+Product Gender taxonomy: product_gender
 Post type: product
-Admin submenu slug: pwc-product-usage
+Product Usage admin submenu slug: pwc-product-usage
+Product Gender admin submenu slug: pwc-product-gender
 Term meta key: thumbnail_id
-REST base: product-usage
+Product Usage REST base: product-usage
+Product Gender REST base: product-gender
 ```
 
 Responsibilities:
 
-- Registers a hierarchical `product_usage` taxonomy on the WooCommerce `product` post type during `init`.
-- Provides Persian taxonomy labels and admin messages.
+- Registers hierarchical `product_usage` and `product_gender` taxonomies on the WooCommerce `product` post type during `init`.
+- Provides Persian taxonomy labels and admin messages, including `جنسیت` for Product Gender.
 - Enables native WordPress taxonomy UI for creating, editing, deleting, and assigning terms.
-- Adds a dedicated `Product Usage` submenu under WooCommerce.
-- Redirects that submenu to the native `edit-tags.php` taxonomy screen.
-- Enables `show_in_rest` with REST base `product-usage`.
+- Adds dedicated `استفاده محصول` and `جنسیت` submenus under WooCommerce.
+- Redirects each submenu to its native `edit-tags.php` taxonomy screen.
+- Enables `show_in_rest` with REST bases `product-usage` and `product-gender`.
+- Provides the same thumbnail picker and term-list thumbnail column for both taxonomies.
 - Registers the `thumbnail_id` term meta field and exposes it in REST responses.
 - Adds a WordPress Media Library picker to add/edit term screens.
 - Stores the selected attachment ID as term metadata.
 - Displays the selected thumbnail in the admin term list.
-- Removes the `استفاده‌های محصول` taxonomy column from the WordPress/WooCommerce product list table at a late filter priority, covering both product-list column filter variants while leaving the taxonomy available in the product editor.
-- Adds `product_usage` as a supported collection parameter to WooCommerce's official product REST API.
-- Applies a taxonomy query to official WooCommerce product collection requests using a Product Usage slug, term ID, or comma-separated list of either.
+- Removes the `استفاده‌های محصول` and `جنسیت‌ها` taxonomy columns from the WordPress/WooCommerce product list table at a late filter priority, while leaving both taxonomies available in the product editor.
+- Adds `product_usage` and `product_gender` as supported collection parameters to WooCommerce's official product REST API.
+- Applies taxonomy queries to official WooCommerce product collection requests using either taxonomy's slug, term ID, or comma-separated list of either.
 
 Product Usage capabilities:
 
@@ -222,7 +227,8 @@ Primer Woo API
 └── API endpoints
 
 WooCommerce
-└── استفاده محصول
+├── استفاده محصول
+└── جنسیت
 
 WooCommerce payment settings / plugin submenu
 └── کارت به کارت
@@ -246,7 +252,8 @@ The plugin uses existing WordPress/WooCommerce storage APIs and does not create 
 | Card-to-card gateway settings | WooCommerce gateway settings plus feature options |
 | Card-to-card receipt data | WooCommerce order metadata prefixed `_pwc_card_receipt_` |
 | Product Usage terms | WordPress taxonomy `product_usage` and standard terms tables |
-| Product Usage thumbnails | Standard term meta key `thumbnail_id`, containing an attachment ID |
+| Product Gender terms | WordPress taxonomy `product_gender` and standard terms tables |
+| Product Usage/Gender thumbnails | Standard term meta key `thumbnail_id`, containing an attachment ID |
 
 ## Lifecycle and hook conventions
 

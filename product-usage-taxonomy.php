@@ -14,21 +14,31 @@ if (!class_exists('PWC_Product_Usage_Taxonomy')) {
     final class PWC_Product_Usage_Taxonomy
     {
         private const TAXONOMY = 'product_usage';
+        private const GENDER_TAXONOMY = 'product_gender';
         private const POST_TYPE = 'product';
         private const MENU_SLUG = 'pwc-product-usage';
+        private const GENDER_MENU_SLUG = 'pwc-product-gender';
         private const META_KEY = 'thumbnail_id';
 
         public static function boot(): void
         {
             add_action('init', [self::class, 'register_taxonomy'], 5);
+            add_action('init', [self::class, 'register_gender_taxonomy'], 5);
             add_action('init', [self::class, 'register_term_meta'], 6);
             add_action('admin_menu', [self::class, 'register_admin_menu'], 30);
+            add_action('admin_menu', [self::class, 'register_gender_admin_menu'], 31);
             add_action('product_usage_add_form_fields', [self::class, 'render_add_thumbnail_field']);
             add_action('product_usage_edit_form_fields', [self::class, 'render_edit_thumbnail_field']);
             add_action('created_product_usage', [self::class, 'save_thumbnail']);
             add_action('edited_product_usage', [self::class, 'save_thumbnail']);
+            add_action('product_gender_add_form_fields', [self::class, 'render_add_thumbnail_field']);
+            add_action('product_gender_edit_form_fields', [self::class, 'render_edit_thumbnail_field']);
+            add_action('created_product_gender', [self::class, 'save_thumbnail']);
+            add_action('edited_product_gender', [self::class, 'save_thumbnail']);
             add_filter('manage_edit-product_usage_columns', [self::class, 'add_thumbnail_column']);
             add_filter('manage_product_usage_custom_column', [self::class, 'render_thumbnail_column'], 10, 3);
+            add_filter('manage_edit-product_gender_columns', [self::class, 'add_thumbnail_column']);
+            add_filter('manage_product_gender_custom_column', [self::class, 'render_thumbnail_column'], 10, 3);
             add_action('admin_enqueue_scripts', [self::class, 'enqueue_admin_assets']);
             add_filter('woocommerce_rest_product_collection_params', [self::class, 'add_rest_collection_param']);
             add_filter('woocommerce_rest_product_object_query', [self::class, 'filter_rest_product_query'], 10, 2);
@@ -38,10 +48,15 @@ if (!class_exists('PWC_Product_Usage_Taxonomy')) {
 
         public static function remove_product_list_column(array $columns): array
         {
-            unset($columns[self::TAXONOMY], $columns['taxonomy-' . self::TAXONOMY]);
+            unset(
+                $columns[self::TAXONOMY],
+                $columns['taxonomy-' . self::TAXONOMY],
+                $columns[self::GENDER_TAXONOMY],
+                $columns['taxonomy-' . self::GENDER_TAXONOMY]
+            );
 
             foreach ($columns as $key => $label) {
-                if (is_string($label) && trim(wp_strip_all_tags($label)) === 'استفاده‌های محصول') {
+                if (is_string($label) && in_array(trim(wp_strip_all_tags($label)), ['استفاده‌های محصول', 'جنسیت‌ها'], true)) {
                     unset($columns[$key]);
                 }
             }
@@ -59,67 +74,116 @@ if (!class_exists('PWC_Product_Usage_Taxonomy')) {
                     return is_scalar($value) && trim((string) $value) !== '';
                 },
             ];
+            $query_params['product_gender'] = [
+                'description'       => __('فیلتر محصولات بر اساس جنسیت. می‌توانید slug یا شناسه term را وارد کنید و چند مقدار را با کاما جدا کنید.', 'primer-better-woocommerce-endpoints'),
+                'type'              => 'string',
+                'sanitize_callback' => 'sanitize_text_field',
+                'validate_callback' => static function ($value): bool {
+                    return is_scalar($value) && trim((string) $value) !== '';
+                },
+            ];
 
             return $query_params;
         }
 
         public static function filter_rest_product_query(array $args, WP_REST_Request $request): array
         {
-            $raw_usage = $request->get_param('product_usage');
-            if (!is_scalar($raw_usage) || trim((string) $raw_usage) === '') {
-                return $args;
-            }
-
-            $terms = array_values(array_filter(array_map(
-                static function ($term): string {
-                    return sanitize_title(trim((string) $term));
-                },
-                explode(',', (string) $raw_usage)
-            )));
-
-            if (!$terms) {
-                return $args;
-            }
-
-            $term_ids = [];
-            $term_slugs = [];
-            foreach ($terms as $term) {
-                if (ctype_digit($term)) {
-                    $term_ids[] = absint($term);
-                } else {
-                    $term_slugs[] = $term;
-                }
-            }
-
-            $usage_query = [
-                'relation' => 'OR',
-            ];
-
-            if ($term_ids) {
-                $usage_query[] = [
-                    'taxonomy' => self::TAXONOMY,
-                    'field'    => 'term_id',
-                    'terms'    => $term_ids,
-                ];
-            }
-
-            if ($term_slugs) {
-                $usage_query[] = [
-                    'taxonomy' => self::TAXONOMY,
-                    'field'    => 'slug',
-                    'terms'    => $term_slugs,
-                ];
-            }
-
-            if (count($usage_query) > 1) {
-                if (!isset($args['tax_query']) || !is_array($args['tax_query'])) {
-                    $args['tax_query'] = [];
+            foreach ([
+                'product_usage' => self::TAXONOMY,
+                'product_gender' => self::GENDER_TAXONOMY,
+            ] as $query_param => $taxonomy) {
+                $raw_value = $request->get_param($query_param);
+                if (!is_scalar($raw_value) || trim((string) $raw_value) === '') {
+                    continue;
                 }
 
-                $args['tax_query'][] = $usage_query;
+                $terms = array_values(array_filter(array_map(
+                    static function ($term): string {
+                        return sanitize_title(trim((string) $term));
+                    },
+                    explode(',', (string) $raw_value)
+                )));
+
+                if (!$terms) {
+                    continue;
+                }
+
+                $term_ids = [];
+                $term_slugs = [];
+                foreach ($terms as $term) {
+                    if (ctype_digit($term)) {
+                        $term_ids[] = absint($term);
+                    } else {
+                        $term_slugs[] = $term;
+                    }
+                }
+
+                $taxonomy_query = ['relation' => 'OR'];
+                if ($term_ids) {
+                    $taxonomy_query[] = [
+                        'taxonomy' => $taxonomy,
+                        'field'    => 'term_id',
+                        'terms'    => $term_ids,
+                    ];
+                }
+                if ($term_slugs) {
+                    $taxonomy_query[] = [
+                        'taxonomy' => $taxonomy,
+                        'field'    => 'slug',
+                        'terms'    => $term_slugs,
+                    ];
+                }
+
+                if (count($taxonomy_query) > 1) {
+                    if (!isset($args['tax_query']) || !is_array($args['tax_query'])) {
+                        $args['tax_query'] = [];
+                    }
+                    $args['tax_query'][] = $taxonomy_query;
+                }
             }
 
             return $args;
+        }
+
+        public static function register_gender_taxonomy(): void
+        {
+            register_taxonomy(
+                self::GENDER_TAXONOMY,
+                [self::POST_TYPE],
+                [
+                    'labels'            => [
+                        'name'              => _x('جنسیت‌ها', 'taxonomy general name', 'primer-better-woocommerce-endpoints'),
+                        'singular_name'     => _x('جنسیت', 'taxonomy singular name', 'primer-better-woocommerce-endpoints'),
+                        'search_items'     => __('جستجوی جنسیت‌ها', 'primer-better-woocommerce-endpoints'),
+                        'all_items'        => __('همه جنسیت‌ها', 'primer-better-woocommerce-endpoints'),
+                        'parent_item'      => __('جنسیت والد', 'primer-better-woocommerce-endpoints'),
+                        'parent_item_colon'=> __('جنسیت والد:', 'primer-better-woocommerce-endpoints'),
+                        'edit_item'        => __('ویرایش جنسیت', 'primer-better-woocommerce-endpoints'),
+                        'view_item'        => __('مشاهده جنسیت', 'primer-better-woocommerce-endpoints'),
+                        'update_item'      => __('به‌روزرسانی جنسیت', 'primer-better-woocommerce-endpoints'),
+                        'add_new_item'     => __('افزودن جنسیت جدید', 'primer-better-woocommerce-endpoints'),
+                        'new_item_name'    => __('نام جنسیت جدید', 'primer-better-woocommerce-endpoints'),
+                        'menu_name'        => __('جنسیت', 'primer-better-woocommerce-endpoints'),
+                        'not_found'        => __('هیچ جنسیتی پیدا نشد.', 'primer-better-woocommerce-endpoints'),
+                        'back_to_items'    => __('← بازگشت به جنسیت‌ها', 'primer-better-woocommerce-endpoints'),
+                    ],
+                    'public'            => true,
+                    'hierarchical'      => true,
+                    'show_ui'           => true,
+                    'show_admin_column' => true,
+                    'show_in_nav_menus' => false,
+                    'show_in_rest'      => true,
+                    'rest_base'         => 'product-gender',
+                    'query_var'         => self::GENDER_TAXONOMY,
+                    'rewrite'           => ['slug' => 'product-gender'],
+                    'capabilities'      => [
+                        'manage_terms' => 'manage_product_terms',
+                        'edit_terms'   => 'edit_product_terms',
+                        'delete_terms' => 'delete_product_terms',
+                        'assign_terms' => 'assign_product_terms',
+                    ],
+                ]
+            );
         }
 
         public static function register_taxonomy(): void
@@ -281,7 +345,7 @@ if (!class_exists('PWC_Product_Usage_Taxonomy')) {
             }
 
             $screen = get_current_screen();
-            if (!$screen || $screen->taxonomy !== self::TAXONOMY) {
+            if (!$screen || !in_array($screen->taxonomy, [self::TAXONOMY, self::GENDER_TAXONOMY], true)) {
                 return;
             }
 
@@ -334,6 +398,36 @@ if (!class_exists('PWC_Product_Usage_Taxonomy')) {
                 self::MENU_SLUG,
                 [self::class, 'redirect_to_term_screen']
             );
+        }
+
+        public static function register_gender_admin_menu(): void
+        {
+            if (!post_type_exists(self::POST_TYPE) || !taxonomy_exists(self::GENDER_TAXONOMY)) {
+                return;
+            }
+
+            add_submenu_page(
+                'woocommerce',
+                __('جنسیت', 'primer-better-woocommerce-endpoints'),
+                __('جنسیت', 'primer-better-woocommerce-endpoints'),
+                'manage_product_terms',
+                self::GENDER_MENU_SLUG,
+                [self::class, 'redirect_to_gender_term_screen']
+            );
+        }
+
+        public static function redirect_to_gender_term_screen(): void
+        {
+            if (!current_user_can('manage_product_terms')) {
+                wp_die(esc_html__('متأسفانه اجازه مدیریت جنسیت‌های محصول را ندارید.', 'primer-better-woocommerce-endpoints'));
+            }
+
+            wp_safe_redirect(
+                admin_url(
+                    'edit-tags.php?taxonomy=' . rawurlencode(self::GENDER_TAXONOMY) . '&post_type=' . rawurlencode(self::POST_TYPE)
+                )
+            );
+            exit;
         }
 
         public static function redirect_to_term_screen(): void
