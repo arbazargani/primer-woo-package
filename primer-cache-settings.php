@@ -231,7 +231,7 @@ final class Primer_Cache_Settings
 
     public static function handle_clean_cache(): void
     {
-        if (!current_user_can('manage_options')) {
+        if (!current_user_can('manage_options') && !current_user_can('manage_woocommerce')) {
             wp_die(esc_html__('You do not have permission to perform this action.', 'primer-better-woocommerce-endpoints'));
         }
 
