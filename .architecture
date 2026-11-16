@@ -300,7 +300,7 @@ WooCommerce payment settings / plugin submenu
 └── کارت به کارت
 ```
 
-The `پاک‌سازی کش` admin-bar action is visible to administrators with `manage_options`. It revalidates all cache tags, purges LiteSpeed Cache when its API/action is available, and redirects to a results-only cache report. The report includes one row per revalidation tag plus a LiteSpeed Cache row.
+The `پاک‌سازی کش` admin-bar action is visible to all users who can see the WordPress admin bar. Its admin-post handler still requires `manage_options` before it can revalidate tags or purge LiteSpeed Cache. It redirects authorized actions to a results-only cache report containing one row per revalidation tag plus a LiteSpeed Cache row.
 
 The Product Usage submenu is only a navigation entry. The actual term management remains WordPress's native taxonomy screen, preserving normal WordPress permissions and term workflows.
 

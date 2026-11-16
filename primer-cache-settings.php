@@ -43,7 +43,7 @@ final class Primer_Cache_Settings
 
     public static function add_admin_bar_item(WP_Admin_Bar $admin_bar): void
     {
-        if (!is_admin_bar_showing() || !current_user_can('manage_options')) {
+        if (!is_admin_bar_showing()) {
             return;
         }
 
