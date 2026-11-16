@@ -7,6 +7,7 @@ final class Primer_Better_WooCommerce_Endpoints_Settings
     private const OPTION_NAME = 'primer_better_woocommerce_endpoints_global_config';
     private const MENU_SLUG = 'primer-wc-api';
     private const SETTINGS_PAGE_SLUG = 'primer-wc-settings';
+    private const SITEMAP_PAGE_SLUG = 'primer-wc-sitemap';
     private const API_PAGE_SLUG = 'primer-wc-api-endpoints';
     private const SETTINGS_GROUP = 'primer_better_woocommerce_endpoints_settings';
 
@@ -149,6 +150,105 @@ final class Primer_Better_WooCommerce_Endpoints_Settings
         "default_value": false
     },
     {
+        "label": "آدرس پایه سایت‌مپ فرانت‌اند",
+        "group": "sitemap",
+        "width": 12,
+        "type": "text",
+        "values": [],
+        "key": "sitemap_frontend_base_url",
+        "default_value": ""
+    },
+    {
+        "label": "فرمت آدرس دسته‌بندی محصولات",
+        "group": "sitemap",
+        "width": 12,
+        "type": "text",
+        "values": [],
+        "key": "sitemap_product_category_url_format",
+        "default_value": ""
+    },
+    {
+        "label": "فرمت آدرس محصولات",
+        "group": "sitemap",
+        "width": 12,
+        "type": "text",
+        "values": [],
+        "key": "sitemap_product_url_format",
+        "default_value": ""
+    },
+    {
+        "label": "فرمت آدرس نوشته‌ها",
+        "group": "sitemap",
+        "width": 12,
+        "type": "text",
+        "values": [],
+        "key": "sitemap_post_url_format",
+        "default_value": ""
+    },
+    {
+        "label": "فعال‌سازی سایت‌مپ دسته‌بندی محصولات",
+        "group": "sitemap",
+        "width": 6,
+        "type": "checkbox",
+        "values": [],
+        "key": "sitemap_enable_product_categories",
+        "default_value": true
+    },
+    {
+        "label": "فعال‌سازی سایت‌مپ محصولات",
+        "group": "sitemap",
+        "width": 6,
+        "type": "checkbox",
+        "values": [],
+        "key": "sitemap_enable_products",
+        "default_value": true
+    },
+    {
+        "label": "فعال‌سازی سایت‌مپ نوشته‌ها",
+        "group": "sitemap",
+        "width": 6,
+        "type": "checkbox",
+        "values": [],
+        "key": "sitemap_enable_posts",
+        "default_value": true
+    },
+    {
+        "label": "فعال‌سازی سایت‌مپ برندها",
+        "group": "sitemap",
+        "width": 6,
+        "type": "checkbox",
+        "values": [],
+        "key": "sitemap_enable_product_brands",
+        "default_value": true
+    },
+    {
+        "label": "فعال‌سازی سایت‌مپ استفاده محصول",
+        "group": "sitemap",
+        "width": 6,
+        "type": "checkbox",
+        "values": [],
+        "key": "sitemap_enable_product_usage",
+        "default_value": true
+    },
+    {
+        "label": "فرمت آدرس برندها",
+        "group": "sitemap",
+        "width": 12,
+        "type": "text",
+        "values": [],
+        "key": "sitemap_product_brand_url_format",
+        "default_value": ""
+    },
+    {
+        "label": "فرمت آدرس استفاده محصول",
+        "group": "sitemap",
+        "width": 12,
+        "type": "text",
+        "values": [],
+        "key": "sitemap_product_usage_url_format",
+        "default_value": ""
+    },
+    {
         "label": "رنگ اصلی",
         "group": "appearance",
         "width": 4,
@@ -190,6 +290,11 @@ JSON;
         "key": "orders",
         "label": "ثبت سفارش",
         "type": "danger"
+    },
+    {
+        "key": "sitemap",
+        "label": "سایت‌مپ",
+        "type": "info"
     }
 ]
 JSON;
@@ -283,6 +388,15 @@ JSON;
             'manage_options',
             self::SETTINGS_PAGE_SLUG,
             [self::class, 'render_page']
+        );
+
+        add_submenu_page(
+            self::MENU_SLUG,
+            __('Sitemap', 'primer-better-woocommerce-endpoints'),
+            __('Sitemap', 'primer-better-woocommerce-endpoints'),
+            'manage_options',
+            self::SITEMAP_PAGE_SLUG,
+            [self::class, 'render_sitemap_page']
         );
 
         add_submenu_page(
@@ -480,6 +594,93 @@ JSON;
                 <?php endforeach; ?>
             </div>
         </section>
+        <?php
+    }
+
+    public static function render_sitemap_page(): void
+    {
+        if (!current_user_can('manage_options')) return;
+
+        $sitemap_urls = [
+            'Base sitemap' => home_url('/sitemap/base.xml'),
+            'Product categories' => home_url('/sitemap/product-categories.xml'),
+            'Products' => home_url('/sitemap/products.xml'),
+            'Posts' => home_url('/sitemap/posts.xml'),
+            'Product brands' => home_url('/sitemap/product-brands.xml'),
+            'Product usage' => home_url('/sitemap/product-usage.xml'),
+        ];
+        $sitemap_config = get_option('primer_better_woocommerce_endpoints_global_config', []);
+        $sitemap_config = is_array($sitemap_config) ? $sitemap_config : [];
+        ?>
+        <div class="wrap">
+            <h1><?php echo esc_html__('Sitemap settings', 'primer-better-woocommerce-endpoints'); ?></h1>
+            <p><?php echo esc_html__('Configure the frontend domain used in sitemap links. The sitemap endpoint itself remains on this WordPress/API domain.', 'primer-better-woocommerce-endpoints'); ?></p>
+            <form action="options.php" method="post">
+                <?php settings_fields(self::SETTINGS_GROUP); ?>
+                <table class="form-table" role="presentation">
+                    <tr>
+                        <th scope="row"><label for="pbe-setting-sitemap_frontend_base_url"><?php echo esc_html__('Frontend base URL', 'primer-better-woocommerce-endpoints'); ?></label></th>
+                        <td>
+                            <?php self::render_field(['field' => [
+                                'key' => 'sitemap_frontend_base_url',
+                                'type' => 'text',
+                                'default_value' => '',
+                            ]]); ?>
+                            <p class="description"><?php echo esc_html__('Example: https://tehransneakers.com', 'primer-better-woocommerce-endpoints'); ?></p>
+                            <h3><?php echo esc_html__('URL formats', 'primer-better-woocommerce-endpoints'); ?></h3>
+                            <p class="description"><?php echo esc_html__('Leave a format empty to use the normal WordPress permalink.', 'primer-better-woocommerce-endpoints'); ?></p>
+                            <?php foreach ([
+                                'sitemap_product_category_url_format' => ['label' => 'Product category format', 'example' => '/shop/category/{slug}'],
+                                'sitemap_product_url_format' => ['label' => 'Product format', 'example' => '/shop/{slug}'],
+                                'sitemap_post_url_format' => ['label' => 'Post format', 'example' => '/blog/{slug}'],
+                                'sitemap_product_brand_url_format' => ['label' => 'Product brand format', 'example' => '/brand/{slug}'],
+                                'sitemap_product_usage_url_format' => ['label' => 'Product usage format', 'example' => '/usage/{slug}'],
+                            ] as $format_key => $format): ?>
+                                <p>
+                                    <label for="pbe-setting-<?php echo esc_attr($format_key); ?>"><strong><?php echo esc_html($format['label']); ?></strong></label><br>
+                                    <?php self::render_field(['field' => [
+                                        'key' => $format_key,
+                                        'type' => 'text',
+                                        'default_value' => '',
+                                    ]]); ?>
+                                    <br><span class="description"><?php echo esc_html__('Example: ', 'primer-better-woocommerce-endpoints') . esc_html($format['example']); ?></span>
+                                </p>
+                            <?php endforeach; ?>
+                            <p class="description"><?php echo esc_html__('Available placeholders: categories, brands and usage: {slug}, {id}, {name}, {parent}; products: {slug}, {id}, {title}, {sku}, {attribute:pa_color}, {meta:key}; posts: {slug}, {id}, {title}, {author_id}, {author}, {date}, {post_type}, {meta:key}.', 'primer-better-woocommerce-endpoints'); ?></p>
+                            <h3><?php echo esc_html__('Sitemap URLs', 'primer-better-woocommerce-endpoints'); ?></h3>
+                            <ul>
+                                <?php foreach ($sitemap_urls as $label => $url): ?>
+                                    <?php $sitemap_slug = sanitize_title($label); ?>
+                                    <li>
+                                        <strong><?php echo esc_html($label); ?>:</strong>
+                                        <a href="<?php echo esc_url($url); ?>" target="_blank" rel="noopener noreferrer"><code><?php echo esc_html($url); ?></code></a>
+                                    </li>
+                                <?php endforeach; ?>
+                            </ul>
+                            <h3><?php echo esc_html__('Enable or disable sitemaps', 'primer-better-woocommerce-endpoints'); ?></h3>
+                            <p class="description"><?php echo esc_html__('The base sitemap is always enabled. Disabling a child sitemap removes it from the base index and its URL returns 404.', 'primer-better-woocommerce-endpoints'); ?></p>
+                            <?php foreach ([
+                                'sitemap_enable_product_categories' => 'Product categories',
+                                'sitemap_enable_products' => 'Products',
+                                'sitemap_enable_posts' => 'Posts',
+                                'sitemap_enable_product_brands' => 'Product brands',
+                                'sitemap_enable_product_usage' => 'Product usage',
+                            ] as $enable_key => $label): ?>
+                                <p>
+                                    <?php self::render_field(['field' => [
+                                        'key' => $enable_key,
+                                        'type' => 'checkbox',
+                                        'default_value' => true,
+                                    ]]); ?>
+                                    <strong><?php echo esc_html($label); ?></strong>
+                                </p>
+                            <?php endforeach; ?>
+                        </td>
+                    </tr>
+                </table>
+                <?php submit_button(); ?>
+            </form>
+        </div>
         <?php
     }
 
