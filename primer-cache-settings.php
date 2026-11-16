@@ -39,11 +39,12 @@ final class Primer_Cache_Settings
         add_action('admin_post_' . self::REVALIDATE_ACTION, [self::class, 'handle_revalidate']);
         add_action('admin_bar_menu', [self::class, 'add_admin_bar_item'], 100);
         add_action('admin_post_' . self::CLEAN_CACHE_ACTION, [self::class, 'handle_clean_cache']);
+        add_action('admin_notices', [self::class, 'render_dashboard_notice']);
     }
 
     public static function add_admin_bar_item(WP_Admin_Bar $admin_bar): void
     {
-        if (!is_admin_bar_showing()) {
+        if (!is_admin_bar_showing() || !self::can_use_cache_actions()) {
             return;
         }
 
@@ -58,6 +59,20 @@ final class Primer_Cache_Settings
                 'title' => __('اعتبارسنجی مجدد همه تگ‌ها و پاک‌سازی کش لایت‌اسپید', 'primer-better-woocommerce-endpoints'),
             ],
         ]);
+    }
+
+    public static function render_dashboard_notice(): void
+    {
+        if (!is_admin() || !self::is_dashboard_request() || !isset($_GET['primer_cache_notice'])) {
+            return;
+        }
+
+        $notice = sanitize_key(wp_unslash($_GET['primer_cache_notice']));
+        if ($notice === 'success') {
+            echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__('پاک‌سازی کش با موفقیت انجام شد.', 'primer-better-woocommerce-endpoints') . '</p></div>';
+        } elseif ($notice === 'error') {
+            echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__('پاک‌سازی کش با خطا انجام شد. برای مشاهده جزئیات به تنظیمات کش بروید.', 'primer-better-woocommerce-endpoints') . '</p></div>';
+        }
     }
 
     public static function register_admin_menu(): void
@@ -97,7 +112,7 @@ final class Primer_Cache_Settings
 
     public static function render_page(): void
     {
-        if (!current_user_can('manage_options')) return;
+        if (!self::can_view_cache_page()) return;
 
         $settings = self::get_settings();
         $results = [];
@@ -231,7 +246,7 @@ final class Primer_Cache_Settings
 
     public static function handle_clean_cache(): void
     {
-        if (!current_user_can('manage_options') && !current_user_can('manage_woocommerce')) {
+        if (!self::can_use_cache_actions()) {
             wp_die(esc_html__('You do not have permission to perform this action.', 'primer-better-woocommerce-endpoints'));
         }
 
@@ -239,6 +254,24 @@ final class Primer_Cache_Settings
 
         $results = self::revalidate_tags(self::TAGS);
         $results[] = self::purge_litespeed_cache();
+
+        if (!self::can_view_cache_page()) {
+            $all_successful = true;
+            foreach ($results as $result) {
+                if (empty($result['success'])) {
+                    $all_successful = false;
+                    break;
+                }
+            }
+
+            wp_safe_redirect(add_query_arg(
+                'primer_cache_notice',
+                $all_successful ? 'success' : 'error',
+                admin_url()
+            ));
+            exit;
+        }
+
         self::redirect_with_results($results, true);
     }
 
@@ -316,6 +349,29 @@ final class Primer_Cache_Settings
             'status' => 204,
             'body' => __('LiteSpeed Cache is not installed or active; no LiteSpeed cache was cleared.', 'primer-better-woocommerce-endpoints'),
         ];
+    }
+
+    private static function can_view_cache_page(): bool
+    {
+        return current_user_can('manage_options');
+    }
+
+    private static function can_use_cache_actions(): bool
+    {
+        if (!is_user_logged_in()) {
+            return false;
+        }
+
+        $user = wp_get_current_user();
+        $excluded_roles = ['subscriber', 'customer'];
+
+        return empty(array_intersect($excluded_roles, (array) $user->roles));
+    }
+
+    private static function is_dashboard_request(): bool
+    {
+        $page = isset($_GET['page']) ? sanitize_key(wp_unslash($_GET['page'])) : '';
+        return $page === '' && basename((string) ($_SERVER['PHP_SELF'] ?? '')) === 'index.php';
     }
 
     private static function get_settings(): array

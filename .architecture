@@ -300,7 +300,7 @@ WooCommerce payment settings / plugin submenu
 └── کارت به کارت
 ```
 
-The `پاک‌سازی کش` admin-bar action is visible to all users who can see the WordPress admin bar. Its admin-post handler requires either `manage_options` or `manage_woocommerce`, allowing WooCommerce Shop Managers to use it while keeping the action protected. It redirects authorized actions to a results-only cache report containing one row per revalidation tag plus a LiteSpeed Cache row.
+The `پاک‌سازی کش` admin-bar action is shown to logged-in users except users with the `subscriber` or `customer` role. Its admin-post handler applies the same role restriction. Administrators with `manage_options` are redirected to the detailed results-only cache report; other eligible users, including WooCommerce Shop Managers, are redirected to the dashboard with a Persian success or failure notice. The cache settings page itself remains restricted to `manage_options`.
 
 The Product Usage submenu is only a navigation entry. The actual term management remains WordPress's native taxonomy screen, preserving normal WordPress permissions and term workflows.
 
