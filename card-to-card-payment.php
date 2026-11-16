@@ -115,24 +115,84 @@ if (!class_exists('PWC_Card_To_Card_Module')) {
             ?>
             <div class="wrap">
                 <h1><?php echo esc_html__('تنظیمات کارت به کارت', 'woocommerce'); ?></h1>
+                <style>
+                    .pwc-settings-card {
+                        max-width: 1100px;
+                        margin: 20px 0 24px;
+                        padding: 0 20px 20px;
+                        border: 1px solid #c3c4c7;
+                        border-radius: 4px;
+                        background: #fff;
+                    }
+                    .pwc-settings-card__title {
+                        margin: 0 -20px 0;
+                        padding: 14px 20px;
+                        border-bottom: 1px solid #2271b1;
+                        font-size: 16px;
+                    }
+                    .pwc-settings-fields {
+                        display: grid;
+                        grid-template-columns: repeat(12, minmax(0, 1fr));
+                        gap: 20px 24px;
+                        padding-top: 20px;
+                    }
+                    .pwc-settings-field {
+                        grid-column: span 6;
+                        min-width: 0;
+                    }
+                    .pwc-settings-field--wide {
+                        grid-column: 1 / -1;
+                    }
+                    .pwc-settings-field label {
+                        display: block;
+                        margin-bottom: 8px;
+                        font-weight: 600;
+                    }
+                    .pwc-settings-field input[type="text"] {
+                        width: 100%;
+                        max-width: 100%;
+                    }
+                    .pwc-settings-description {
+                        margin: 8px 0 0;
+                        color: #50575e;
+                    }
+                    .pwc-settings-description code {
+                        direction: ltr;
+                        unicode-bidi: embed;
+                    }
+                    .pwc-settings-toggle {
+                        display: inline-flex !important;
+                        align-items: center;
+                        gap: 8px;
+                        margin: 0;
+                        font-weight: 400 !important;
+                    }
+                    @media screen and (max-width: 782px) {
+                        .pwc-settings-field,
+                        .pwc-settings-field--wide {
+                            grid-column: 1 / -1;
+                        }
+                    }
+                </style>
                 <p><?php echo esc_html__('این گزینه مستقل از فعال/غیرفعال بودن درگاه در تنظیمات پرداخت ووکامرس است.', 'woocommerce'); ?></p>
-                <form method="post">
-                    <?php wp_nonce_field('pwc_card_settings'); ?>
-                    <table class="form-table" role="presentation"><tbody>
-                        <tr>
-                            <th scope="row"><label for="pwc_app_key">App key</label></th>
-                            <td>
-                                <input type="text" id="pwc_app_key" name="pwc_app_key" class="large-text code" value="<?php echo esc_attr(self::get_app_key()); ?>" autocomplete="off">
-                                <p class="description">کلید را خودتان وارد کنید و سپس ذخیره کنید. این کلید را در فرانت‌اند با header به نام <code>X-App-Key</code> یا <code>Authorization: AppKey YOUR_KEY</code> ارسال کنید.</p>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th scope="row"><label for="pwc_enabled">فعال بودن قابلیت</label></th>
-                            <td><label><input type="checkbox" id="pwc_enabled" name="pwc_enabled" value="1" <?php checked(self::is_feature_enabled()); ?>> فعال</label></td>
-                        </tr>
-                    </tbody></table>
-                    <p><button type="submit" name="pwc_save_settings" class="button button-primary">ذخیره تغییرات</button></p>
-                </form>
+                <div class="pwc-settings-card">
+                    <h2 class="pwc-settings-card__title"><?php echo esc_html__('تنظیمات درگاه', 'woocommerce'); ?></h2>
+                    <form method="post">
+                        <?php wp_nonce_field('pwc_card_settings'); ?>
+                        <div class="pwc-settings-fields">
+                            <!--<div class="pwc-settings-field pwc-settings-field--wide">
+                                <label for="pwc_app_key">App key</label>
+                                <input type="text" id="pwc_app_key" name="pwc_app_key" class="code" value="<?php echo esc_attr(self::get_app_key()); ?>" autocomplete="off">
+                                <p class="description pwc-settings-description">کلید را خودتان وارد کنید و سپس ذخیره کنید. این کلید را در فرانت‌اند با header به نام <code>X-App-Key</code> یا <code>Authorization: AppKey YOUR_KEY</code> ارسال کنید.</p>
+                            </div>-->
+                            <div class="pwc-settings-field">
+                                <label for="pwc_enabled"><?php echo esc_html__('وضعیت قابلیت', 'woocommerce'); ?></label>
+                                <label class="pwc-settings-toggle"><input type="checkbox" id="pwc_enabled" name="pwc_enabled" value="1" <?php checked(self::is_feature_enabled()); ?>> فعال</label>
+                            </div>
+                        </div>
+                        <p><button type="submit" name="pwc_save_settings" class="button button-primary">ذخیره تغییرات</button></p>
+                    </form>
+                </div>
             </div>
             <?php
         }
@@ -259,7 +319,7 @@ if (!class_exists('PWC_Card_To_Card_Module')) {
                 return null;
             }
             $id = absint($request['order_id']);
-            
+
             return wc_get_order($id);
         }
 

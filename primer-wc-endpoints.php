@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Primer Woo Package
  * Description: Optimized REST API endpoints for WooCommerce attributes, terms, swatches and variable-product combinations.
- * Version: 2.3.0
+ * Version: 3.1.0
  * Author: Alireza Bazargani
  * Requires at least: 6.4
  * Requires PHP: 8.1
@@ -13,6 +13,7 @@
 if (!defined('ABSPATH')) exit;
 
 require_once __DIR__ . '/primer-wc-settings.php';
+require_once __DIR__ . '/primer-cache-settings.php';
 require_once __DIR__ . '/card-to-card-payment.php';
 require_once __DIR__ . '/product-usage-taxonomy.php';
 
@@ -608,4 +609,5 @@ final class Primer_Better_WooCommerce_Endpoints
 }
 
 Primer_Better_WooCommerce_Endpoints_Settings::boot();
+Primer_Cache_Settings::boot();
 Primer_Better_WooCommerce_Endpoints::boot();

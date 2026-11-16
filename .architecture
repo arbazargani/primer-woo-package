@@ -23,12 +23,13 @@ The main plugin file is:
 primer-wc-endpoints.php
 ```
 
-It contains the plugin header, loads feature files, defines the main REST API class, and boots the settings and REST classes at the end of the file.
+It contains the plugin header, loads feature files, defines the main REST API class, and boots the settings, cache, and REST classes at the end of the file.
 
 Current load order:
 
 ```php
 require_once __DIR__ . '/primer-wc-settings.php';
+require_once __DIR__ . '/primer-cache-settings.php';
 require_once __DIR__ . '/card-to-card-payment.php';
 require_once __DIR__ . '/product-usage-taxonomy.php';
 ```
@@ -127,6 +128,65 @@ GET /wp-json/primer-better-woocommerce/v1/usages
 
 The settings class boots with `admin_menu`, `admin_init`, and `admin_enqueue_scripts` hooks. Its `API_ROUTES` registry is documentation-only; it does not register REST routes itself. Actual route registration remains in `Primer_Better_WooCommerce_Endpoints::register_routes()`.
 
+### `primer-cache-settings.php`
+
+Independent cache revalidation and cache-purge administration module.
+
+Main class:
+
+```text
+Primer_Cache_Settings
+```
+
+Admin page slug and option identifiers:
+
+```text
+Settings page: primer-cache-settings
+Option: primer_cache_settings
+Settings group: primer_cache_settings_group
+Manual revalidation action: primer_revalidate_cache
+Admin-bar clean action: primer_clean_cache
+```
+
+Responsibilities:
+
+- Adds a `Cache settings` submenu under the existing `primer-wc-api` admin menu.
+- Registers and sanitizes the `primer_cache_settings` option, containing the Next revalidation secret and URL.
+- Provides a visually organized settings page with separate revalidation-settings and purge-cache cards.
+- Provides a multi-select tag field for manually revalidating selected tags.
+- Sends one POST request per selected tag to the configured URL with `secret` and `tag` query parameters.
+- Displays the HTTP status, masked request URL, and response body for each manual revalidation request.
+- Adds a Persian `پاک‌سازی کش` action to the WordPress admin bar for users with the `manage_options` capability.
+- Revalidates every configured tag from the admin-bar action and attempts to purge LiteSpeed Cache.
+- Uses `LiteSpeed_Cache_API::purge_all()` when available, falls back to the `litespeed_purge_all` action, and reports when LiteSpeed Cache is unavailable.
+- Redirects cache-action results to a results-only view for admin-bar clean-cache requests; the regular settings and purge forms remain hidden in that view.
+- Displays `✅` for successful responses and `❌` for failed responses.
+- Stores result payloads temporarily in WordPress transients during the POST/redirect/GET flow, with a five-minute expiration.
+
+Supported revalidation tags:
+
+```text
+menu
+products
+productBySlug
+productsAttributes
+home
+categories
+categoriesById
+brands
+brandByIdentifier
+attributes
+usages
+productUsage
+usageArchive
+reviews
+posts
+postsDetail
+taxonomy
+```
+
+The cache module uses capability checks and WordPress nonces for both manual revalidation and the admin-bar clean-cache action. The configured secret is never displayed in result URLs; it is replaced with a masked value in the admin response view.
+
 ### `card-to-card-payment.php`
 
 Independent card-to-card payment feature.
@@ -222,9 +282,15 @@ The taxonomy is intentionally separate from product categories, tags, attributes
 Current admin surfaces:
 
 ```text
+WordPress admin bar
+└── پاک‌سازی کش
+
 Primer Woo API
 ├── Settings
-└── API endpoints
+├── API endpoints
+└── Cache settings
+    ├── Revalidation settings
+    └── Purge cache
 
 WooCommerce
 ├── استفاده محصول
@@ -233,6 +299,8 @@ WooCommerce
 WooCommerce payment settings / plugin submenu
 └── کارت به کارت
 ```
+
+The `پاک‌سازی کش` admin-bar action is visible to administrators with `manage_options`. It revalidates all cache tags, purges LiteSpeed Cache when its API/action is available, and redirects to a results-only cache report. The report includes one row per revalidation tag plus a LiteSpeed Cache row.
 
 The Product Usage submenu is only a navigation entry. The actual term management remains WordPress's native taxonomy screen, preserving normal WordPress permissions and term workflows.
 
@@ -254,6 +322,8 @@ The plugin uses existing WordPress/WooCommerce storage APIs and does not create 
 | Product Usage terms | WordPress taxonomy `product_usage` and standard terms tables |
 | Product Gender terms | WordPress taxonomy `product_gender` and standard terms tables |
 | Product Usage/Gender thumbnails | Standard term meta key `thumbnail_id`, containing an attachment ID |
+| Cache settings | WordPress option `primer_cache_settings`, containing `next_revalidate_secret` and `next_revalidate_url` |
+| Cache action results | Short-lived WordPress transients containing response status, masked URL, response body, and clean-cache view state |
 
 ## Lifecycle and hook conventions
 
@@ -264,6 +334,8 @@ Important lifecycle points:
 - REST routes are registered on `rest_api_init`.
 - Admin menus are registered on `admin_menu`.
 - Settings are registered on `admin_init`.
+- The cache admin-bar item is registered on `admin_bar_menu`.
+- Protected cache actions use `admin_post_primer_revalidate_cache` and `admin_post_primer_clean_cache`.
 - Admin scripts are loaded on `admin_enqueue_scripts` and should be restricted to relevant screens.
 - WooCommerce-dependent behavior is guarded with function/class checks where needed.
 
@@ -312,6 +384,7 @@ WooCommerce is required for the intended product and payment functionality. Some
 
 - PHP syntax uses typed methods, return types, class constants, and PHP 8.1-compatible features.
 - WordPress translation functions use the plugin text domain `primer-better-woocommerce-endpoints` in the newer isolated features.
+- The cache admin-bar label is Persian (`پاک‌سازی کش`), while its cache settings page and result labels retain the existing mixed-language UI conventions.
 - Some older/existing UI strings use the `woocommerce` text domain or plain strings; do not refactor these unrelated areas without an explicit request.
 - Existing files contain compact formatting in places. Match the surrounding file style when making targeted edits.
 - Do not rename existing classes, routes, options, metadata keys, or menu slugs.
